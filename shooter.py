@@ -24,6 +24,25 @@ class Settings():
     def draw(self):
         window.blit(self.image, (self.rect.x, self.rect.y))
 
+class Label:
+    def __init__(self,size,color):
+        self.size = size
+        self.color = color
+    def set_text(self, text):
+        self.text = pygame.font.SysFont('Verdana', self.size).render(text,True,self.color)
+    def draw(self, x, y):
+        window.blit(self.text, (x,y))
+
+class Button(Label):
+    def __init__(self,size,color,x,y,w,h,btn_color):
+        super().__init__(size,color)
+        self.rect = pygame.Rect(x,y,w,h)
+        self.btn_color = btn_color
+    
+    def draw(self,x,y):
+        pygame.draw.rect(window,self.btn_color,self.rect)
+        window.blit(self.text, (self.rect.x + x, self.rect.y + y))
+
 class Player(Settings):
     
     def __init__(self, image, x, y, w, h, s):
@@ -53,8 +72,9 @@ class Player(Settings):
             bullets.append(Bullet("bullet.png", self.rect.centerx-20, self.rect.centery//1.25, 50, 100, 20))
             
 class Enemy(Player):
-    def __init__(self, image, x, y, w, h, s):
+    def __init__(self, image, x, y, w, h, s, hp):
         super().__init__(image, x, y, w, h, s)
+        self.hp = hp
 
     def move(self):
         global player, enemies
@@ -70,13 +90,19 @@ class Enemy(Player):
                 self.rect.x = randint(0,win_width-p_size)
                 self.rect.y = randint(-10*p_size, -1*p_size)
 
-
 def levels():
     global enemies, num_enemies, start, num_level, boss
     if start == True and num_level==1:
+        num_enemies = 5
+        for enemy in range(num_enemies):
+            enemies.append(Enemy("alien.png", randint(0,win_width), randint(-2*p_size, -1*p_size), p_size, p_size, 1, 1))
+        start = False
+        boss = Boss("boss.png", win_width//4, -400, win_width//2, 400, 5, 15)
+
+    elif start == True and num_level == 2:
         num_enemies = 1
         for enemy in range(num_enemies):
-            enemies.append(Enemy("alien.png", randint(0,win_width), randint(-5*p_size, -1*p_size), p_size, p_size, 5))
+            enemies.append(Enemy("alien.png", randint(0,win_width), randint(-2*p_size, -1*p_size), p_size, p_size, 3, 2))
         start = False
         boss = Boss("boss.png", win_width//4, -400, win_width//2, 400, 5, 15)
 
@@ -90,9 +116,12 @@ class Bullet(Player):
         if self.rect.y < -10:
             bullets.remove(bullet)
         for enemy in enemies:
-            if self.rect.colliderect(enemy.rect) and self in bullets:
+            if self.rect.colliderect(enemy.rect) and self in bullets and enemy.hp>0:
+                enemy.hp -= 1
                 enemies.remove(enemy)
                 bullets.remove(bullet)
+            elif enemy.hp <=0:
+                enemies.remove(enemy)
         if self.rect.colliderect(boss.rect) and self in bullets:
                     boss.hp -= 1
                     bullets.remove(self)
@@ -105,8 +134,6 @@ class Bullet(Player):
             player.hp -= 1
             boss.boss_bullets.remove(self)
         
-
-            
 class Boss(Player):
     def __init__(self, image, x, y, w, h, s, hp):
         super().__init__(image, x, y, w, h, s)
@@ -133,8 +160,9 @@ class Boss(Player):
 
     def shootboss(self):
         if self.start == True and len(self.boss_bullets)==0:
-            x=randint(320, 960)
-            for i in range(randint(1,2)):
+            
+            for i in range(randint(1,5)):
+                x=randint(320, 960)
                 self.boss_bullets.append(Bullet("bullet.png", x, self.rect.y+self.rect.height//2, 20, 40, 15))
                 self.start = False
         elif self.start == False and len(self.boss_bullets)==0:
@@ -145,11 +173,15 @@ class Boss(Player):
 
 bg = Settings("background.png", 0, 0, win_width, win_height)
 player = Player("rocket.png", win_width//2.05, win_height//1.25, p_size, p_size, 20) 
-
+buttons = [Button(40, (255,255,255), win_width//3, win_height//3, 200, 100, (0,0,0)), 
+           Button(40, (255,255,255), win_width//3, win_height//3+110, 200, 100, (0,0,0))]
+buttons[0].set_text("PLAY")
+buttons[1].set_text("EXIT")
+status_menu = True
 finish = False
 start = True
-num_level = 1
-game = True
+num_level = 2
+game = False
 current = time.time()
 shoot = True
 
@@ -157,42 +189,66 @@ shoot = True
 pygame.mixer.music.load("bgmusic.mp3")
 pygame.mixer.music.play()
 
-while game == True:
+while status_menu:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
-            game = False
-    
-    if finish != True:
+            status_menu = False
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            x,y = event.pos
+            if buttons[0].rect.collidepoint(x,y):
+                game=True
+            if buttons[1].rect.collidepoint(x,y):
+                status_menu = False
+    if game != True:
         bg.draw()
-        
-        levels()
+        for b in buttons:
+            b.draw(20,20)
+        pygame.display.flip()
+        FPS.tick(60)
+    else:
+        while game == True:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    game = False
+            
+            if finish != True:
+                bg.draw()
+                
+                levels()
 
-        if time.time()-current>0.5:
-            current = time.time()
-            shoot = True
-    
-        for enemy in enemies:
-            enemy.move()
-            enemy.draw()
+                if time.time()-current>0.5:
+                    current = time.time()
+                    shoot = True
+            
+                for enemy in enemies:
+                    enemy.move()
+                    enemy.draw()
 
-        for bullet in bullets:
-            bullet.move()
-            bullet.draw()
+                for bullet in bullets:
+                    bullet.move()
+                    bullet.draw()
 
-        if player.hp <= 0:
-            finish = True
+                if player.hp <= 0:
+                    finish = True
 
-        if len(enemies) == 0:
-            boss.move()
-            boss.shootboss()
-            boss.draw()
-            for b in boss.boss_bullets:
-                b.b_shoot()
-                b.draw()
+                if len(enemies) == 0:
+                    boss.move()
+                    boss.shootboss()
+                    boss.draw()
+                    for b in boss.boss_bullets:
+                        b.b_shoot()
+                        b.draw()
 
-        player.draw()
-        player.move()
-        player.bulletshoot()
-    
-    pygame.display.flip()
-    FPS.tick(60)
+                    if boss.hp <= 0:
+                        start = True
+                        num_level += 1
+
+
+                player.draw()
+                player.move()
+                player.bulletshoot()
+            
+            pygame.display.flip()
+            FPS.tick(60)
+
+
