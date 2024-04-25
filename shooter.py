@@ -1,6 +1,9 @@
 import pygame
 from random import randint
 import time
+import os
+import sys 
+
 
 pygame.font.init()
 pygame.mixer.init()
@@ -14,6 +17,11 @@ bullets = []
 
 window = pygame.display.set_mode((win_width, win_height))
 pygame.display.set_caption("Шутер")
+
+def resource_path(relative):
+    if hasattr(sys, "_MEIPASS"):
+        return os.path.join(sys._MEIPASS, relative)
+    return os.path.join(relative)
 
 class Settings():
     def __init__(self, image, x, y, w, h):
@@ -50,7 +58,7 @@ class Player(Settings):
         self.speed = s
         self.bullets = []
         self.hp = 3
-        self.image_hp = pygame.transform.scale(pygame.image.load("heart.png"), (100,100))
+        self.image_hp = pygame.transform.scale(pygame.image.load(resource_path("heart.png")), (100,100))
 
     def draw_hp(self):
         for h in range(self.hp):
@@ -69,7 +77,7 @@ class Player(Settings):
         keys = pygame.key.get_pressed()
         if keys[pygame.K_UP] and shoot:
             shoot = False
-            bullets.append(Bullet("bullet.png", self.rect.centerx-20, self.rect.centery//1.25, 50, 100, 20))
+            bullets.append(Bullet(resource_path("bullet.png"), self.rect.centerx-20, self.rect.centery//1.25, 50, 100, 20))
             
 class Enemy(Player):
     def __init__(self, image, x, y, w, h, s, hp):
@@ -93,18 +101,18 @@ class Enemy(Player):
 def levels():
     global enemies, num_enemies, start, num_level, boss
     if start == True and num_level==1:
-        num_enemies = 5
+        num_enemies = 1
         for enemy in range(num_enemies):
-            enemies.append(Enemy("alien.png", randint(0,win_width), randint(-2*p_size, -1*p_size), p_size, p_size, 1, 1))
+            enemies.append(Enemy("alien.png", randint(0,win_width), randint(-2*p_size, -1*p_size), p_size, p_size, 3, 1))
         start = False
-        boss = Boss("boss.png", win_width//4, -400, win_width//2, 400, 5, 15)
+        boss = Boss("boss.png", win_width//4, -400, win_width//2, 400, 5, 3)
 
     elif start == True and num_level == 2:
         num_enemies = 1
         for enemy in range(num_enemies):
-            enemies.append(Enemy("alien.png", randint(0,win_width), randint(-2*p_size, -1*p_size), p_size, p_size, 3, 2))
+            enemies.append(Enemy("alien.png", randint(0,win_width), randint(-2*p_size, -1*p_size), p_size, p_size, 5, 2))
         start = False
-        boss = Boss("boss.png", win_width//4, -400, win_width//2, 400, 5, 15)
+        boss = Boss("boss.png", win_width//4, -400, win_width//2, 400, 5, 3)
 
 class Bullet(Player):
     def __init__(self, image, x, y, w, h, s):
@@ -163,7 +171,7 @@ class Boss(Player):
             
             for i in range(randint(1,5)):
                 x=randint(320, 960)
-                self.boss_bullets.append(Bullet("bullet.png", x, self.rect.y+self.rect.height//2, 20, 40, 15))
+                self.boss_bullets.append(Bullet(resource_path("bullet.png"), x, self.rect.y+self.rect.height//2, 20, 40, 15))
                 self.start = False
         elif self.start == False and len(self.boss_bullets)==0:
             self.start = True
@@ -173,20 +181,22 @@ class Boss(Player):
 
 bg = Settings("background.png", 0, 0, win_width, win_height)
 player = Player("rocket.png", win_width//2.05, win_height//1.25, p_size, p_size, 20) 
-buttons = [Button(40, (255,255,255), win_width//3, win_height//3, 200, 100, (0,0,0)), 
+win = Settings("win.jpg",-50,0,win_width+50,win_height)
+lose = Settings("lose.jpg",0,0,win_width, win_height)
+title = [Button(40, (255,255,255), win_width//3, win_height//3, 200, 100, (0,0,0)), 
            Button(40, (255,255,255), win_width//3, win_height//3+110, 200, 100, (0,0,0))]
-buttons[0].set_text("PLAY")
-buttons[1].set_text("EXIT")
+title[0].set_text("PLAY")
+title[1].set_text("EXIT")
 status_menu = True
 finish = False
 start = True
-num_level = 2
+num_level = 1
 game = False
 current = time.time()
 shoot = True
 
 
-pygame.mixer.music.load("bgmusic.mp3")
+pygame.mixer.music.load(resource_path("bgmusic.mp3"))
 pygame.mixer.music.play()
 
 while status_menu:
@@ -195,13 +205,17 @@ while status_menu:
             status_menu = False
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             x,y = event.pos
-            if buttons[0].rect.collidepoint(x,y):
+            if title[0].rect.collidepoint(x,y):
                 game=True
-            if buttons[1].rect.collidepoint(x,y):
+                finish = False
+                num_level = 1
+                start = True
+                player.hp = 3
+            if title[1].rect.collidepoint(x,y):
                 status_menu = False
     if game != True:
         bg.draw()
-        for b in buttons:
+        for b in title:
             b.draw(20,20)
         pygame.display.flip()
         FPS.tick(60)
@@ -210,9 +224,41 @@ while status_menu:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     game = False
+                if event.type == pygame.KEYDOWN and event.key==pygame.K_ESCAPE:
+                    finish = True
+                    title[0].set_text("CONTINUE")
+                    status_menu = True
+                    game = False
+                    while status_menu:
+                        for event in pygame.event.get():
+                            if event.type == pygame.QUIT:
+                                status_menu = False
+                            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                                x,y = event.pos
+                                if title[0].rect.collidepoint(x,y):
+                                    status_menu = False
+                                    finish = False
+                                    game = True
+                                if title[1].rect.collidepoint(x,y):
+                                    status_menu = False
+                                    game = False
+                        if game != True:
+                            bg.draw()
+                            for b in title:
+                                b.draw(20,20)
+                            pygame.display.flip()
+                            FPS.tick(60)
+                        else:
+                            status_menu = True
+                            title[0].set_text("PLAY")
+                            break
+
             
             if finish != True:
                 bg.draw()
+                player.draw()
+                player.move()
+                player.bulletshoot()
                 
                 levels()
 
@@ -228,9 +274,6 @@ while status_menu:
                     bullet.move()
                     bullet.draw()
 
-                if player.hp <= 0:
-                    finish = True
-
                 if len(enemies) == 0:
                     boss.move()
                     boss.shootboss()
@@ -242,11 +285,20 @@ while status_menu:
                     if boss.hp <= 0:
                         start = True
                         num_level += 1
+                
+                if player.hp <= 0:
+                    lose.draw()
+                    pygame.display.flip()
+                    finish = True
+                    pygame.time.delay(3000)
+                    game = False
 
-
-                player.draw()
-                player.move()
-                player.bulletshoot()
+                if num_level > 2 and boss.hp<=0:
+                    win.draw()
+                    pygame.display.flip()
+                    finish = True
+                    pygame.time.delay(3000)
+                    game = False  
             
             pygame.display.flip()
             FPS.tick(60)
